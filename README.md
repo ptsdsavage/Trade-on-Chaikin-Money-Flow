@@ -72,7 +72,7 @@ python pnl_monitor.py
 python check_accuracy.py 2026-08-27 --horizon 5 --threshold 0.0
 ```
 
-If you are using the 'iex' version, only trade during market hours. If you
+If you are using the 'iex' data plan, only trade during market hours. If you
 have a 'sip' plan, you can trade from 4AM to 8PM EST.
 
 Each script writes its own CSV log for the day (`spy_bars_*.csv`,
