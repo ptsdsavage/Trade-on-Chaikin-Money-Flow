@@ -31,10 +31,12 @@ from cmf_spy import (
     app_dir,
     compute_cmf,
     fetch_bars,
+    get_data_feed_enum,
     get_session_end,
     get_session_start,
     interpret_signal,
     load_credentials,
+    load_data_feed,
     seconds_until_next_minute,
 )
 
@@ -118,8 +120,9 @@ def verify_account(trading_client: TradingClient, expected_account_id: str) -> N
 
 
 def main() -> None:
-    api_key, api_secret = load_credentials()
     trade_key, trade_secret = load_trading_credentials()
+    feed = load_data_feed()
+    api_key, api_secret = load_credentials(feed)
 
     data_client = StockHistoricalDataClient(api_key, api_secret)
     trading_client = TradingClient(trade_key, trade_secret, paper=True)
@@ -136,7 +139,7 @@ def main() -> None:
         while datetime.now(EASTERN) < session_end:
             now = datetime.now(EASTERN)
             end = now
-            df = fetch_bars(data_client, SYMBOL, start, end)
+            df = fetch_bars(data_client, SYMBOL, start, end, get_data_feed_enum(feed))
             if df.empty:
                 print(f"[{end.strftime('%H:%M:%S')}] no bar data yet, waiting...")
                 time.sleep(seconds_until_next_minute())

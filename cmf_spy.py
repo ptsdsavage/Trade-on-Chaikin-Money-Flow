@@ -35,23 +35,54 @@ def app_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
-def load_credentials() -> tuple[str, str]:
+def load_data_feed() -> str:
     env_path = os.path.join(app_dir(), ".env")
     load_dotenv(env_path)
-    api_key = os.getenv("apiDataKey")
-    api_secret = os.getenv("apiDataSecret")
+    feed = os.getenv("apiDataFeed", "").strip().lower()
+
+    if feed not in ("iex", "sip"):
+        if not sys.stdin.isatty():
+            raise RuntimeError(f"Missing/invalid apiDataFeed in {env_path} (must be 'iex' or 'sip')")
+        print("Select your Alpaca market data plan:")
+        print("  iex - free plan (real-time IEX-only data, uses your trading API keys)")
+        print("  sip - paid plan (full consolidated market data, needs its own API keys)")
+        while feed not in ("iex", "sip"):
+            feed = input("Enter data plan ('iex' or 'sip'): ").strip().lower()
+        with open(env_path, "a") as f:
+            f.write(f"apiDataFeed={feed}\n")
+        print(f"Saved data plan to {env_path}\n")
+
+    return feed
+
+
+def get_data_feed_enum(feed: str) -> DataFeed:
+    return DataFeed.IEX if feed == "iex" else DataFeed.SIP
+
+
+def load_credentials(feed: str) -> tuple[str, str]:
+    env_path = os.path.join(app_dir(), ".env")
+    load_dotenv(env_path)
+
+    if feed == "iex":
+        # Free IEX plan: reuse the trading API keys for market data too.
+        key_name, secret_name, api_label = "apiTradeKey", "apiTradeSecret", "Alpaca trading API"
+    else:
+        key_name, secret_name, api_label = "apiDataKey", "apiDataSecret", "Alpaca market data API"
+
+    api_key = os.getenv(key_name)
+    api_secret = os.getenv(secret_name)
 
     if not api_key or not api_secret:
         if not sys.stdin.isatty():
-            raise RuntimeError(f"Missing apiDataKey/apiDataSecret in {env_path}")
-        print("No Alpaca API credentials found.")
-        print("Get a free data key/secret from https://app.alpaca.markets/paper/dashboard/overview")
-        api_key = input("Enter your Alpaca API key: ").strip()
-        api_secret = input("Enter your Alpaca API secret: ").strip()
+            raise RuntimeError(f"Missing {key_name}/{secret_name} in {env_path}")
+        print(f"No {api_label} credentials found.")
+        print(f"Get a free key/secret from https://app.alpaca.markets/paper/dashboard/overview")
+        api_key = input(f"Enter your {api_label} key: ").strip()
+        api_secret = input(f"Enter your {api_label} secret: ").strip()
         if not api_key or not api_secret:
-            raise RuntimeError("Missing apiDataKey/apiDataSecret in .env")
-        with open(env_path, "w") as f:
-            f.write(f"apiDataKey={api_key}\napiDataSecret={api_secret}\n")
+            raise RuntimeError(f"Missing {key_name}/{secret_name} in {env_path}")
+        with open(env_path, "a") as f:
+            f.write(f"{key_name}={api_key}\n{secret_name}={api_secret}\n")
         print(f"Saved credentials to {env_path}\n")
 
     return api_key, api_secret
@@ -73,14 +104,18 @@ def seconds_until_next_minute() -> float:
 
 
 def fetch_bars(
-    client: StockHistoricalDataClient, symbol: str, start: datetime, end: datetime
+    client: StockHistoricalDataClient,
+    symbol: str,
+    start: datetime,
+    end: datetime,
+    feed: DataFeed = DataFeed.SIP,
 ) -> pd.DataFrame:
     request = StockBarsRequest(
         symbol_or_symbols=symbol,
         timeframe=TimeFrame.Minute,
         start=start,
         end=end,
-        feed=DataFeed.SIP,
+        feed=feed,
     )
     bars = client.get_stock_bars(request)
     df = bars.df
@@ -134,7 +169,8 @@ def append_signal_log(path: str, row: dict) -> None:
 
 def main() -> None:
     symbol = "SPY"
-    api_key, api_secret = load_credentials()
+    feed = load_data_feed()
+    api_key, api_secret = load_credentials(feed)
     client = StockHistoricalDataClient(api_key, api_secret)
     start = get_session_start()
     session_end = get_session_end(start)
@@ -149,7 +185,7 @@ def main() -> None:
     try:
         while datetime.now(EASTERN) < session_end:
             end = datetime.now(EASTERN)
-            df = fetch_bars(client, symbol, start, end)
+            df = fetch_bars(client, symbol, start, end, get_data_feed_enum(feed))
             if df.empty:
                 print(f"[{end.strftime('%H:%M:%S')}] no bar data yet, waiting...")
                 time.sleep(seconds_until_next_minute())

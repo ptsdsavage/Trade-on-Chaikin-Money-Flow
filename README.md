@@ -13,6 +13,7 @@ has been.
 | `pnl_monitor.py` | Polls the paper account every 10s and prints/logs unrealized position P&L and account day P&L. |
 | `check_accuracy.py` | Scores a day's signal log against what price actually did afterward. |
 | `build_app.sh` | Builds standalone macOS binaries for `cmf_spy.py` and `cmf_trader.py` and packages them into `Trade on Chaikin Money Flow.zip`. |
+| `build_app_windows.bat` | Builds a standalone Windows exe for `cmf_spy.py` and `cmf_trader.py` (run on Windows) and packages them into `Trade on Chaikin Money Flow.zip`. |
 
 ## Install
 
@@ -32,11 +33,18 @@ Create a `.env` file in the project root (scripts will also prompt and save
 it for you on first run if missing):
 
 ```
-apiDataKey=<Alpaca market data API key>
-apiDataSecret=<Alpaca market data API secret>
+apiDataFeed=<'iex' or 'sip'>
+apiDataKey=<Alpaca market data API key>       # only needed if apiDataFeed=sip
+apiDataSecret=<Alpaca market data API secret> # only needed if apiDataFeed=sip
 apiTradeKey=<Alpaca PAPER trading API key>
 apiTradeSecret=<Alpaca PAPER trading API secret>
 ```
+
+`apiDataFeed` selects your Alpaca market data plan:
+- `iex` - free plan. Only the trading API keys need to be entered; the
+  trading keys (`apiTradeKey`/`apiTradeSecret`) are reused for market data too.
+- `sip` - paid plan with full consolidated market data. Requires its own
+  `apiDataKey`/`apiDataSecret`.
 
 Get free keys at https://app.alpaca.markets/paper/dashboard/overview.
 `.env` is gitignored — never commit it.
@@ -78,3 +86,16 @@ Produces `Trade on Chaikin Money Flow.zip` containing arm64 + x86_64
 binaries and double-clickable launchers (`Run SPY Signal.command`,
 `Run CMF Trader.command`). The zip is gitignored (too large for git) - keep
 it locally or distribute separately.
+
+## Building the standalone Windows app
+
+Run on a Windows machine with Python 3.10+ installed:
+
+```bat
+build_app_windows.bat
+```
+
+Produces `Trade on Chaikin Money Flow.zip` containing `SPY-CMF-Signal.exe`,
+`CMF-Trader.exe`, and double-clickable launchers (`Run SPY Signal.bat`,
+`Run CMF Trader.bat`). PyInstaller can't cross-compile, so this must be run
+on Windows itself, not on macOS/Linux.
