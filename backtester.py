@@ -112,13 +112,27 @@ def simulate_day(df: pd.DataFrame, qty: int) -> tuple[list[dict], dict]:
         })
         current_qty = 0
 
+    positions = [r["current_qty"] for r in rows]
     summary = {
         "date": df.index[0].date(),
         "bars": len(df),
         "trades": trades,
         "net_pnl": cash,
+        "max_position": max(positions),
+        "min_position": min(positions),
     }
     return rows, summary
+
+
+def sharpe_ratio(daily_pnls: list[float], periods_per_year: int = 252) -> float:
+    """Annualized Sharpe ratio (risk-free rate 0) of daily P&L; NaN if fewer than 2 days or no variance."""
+    if len(daily_pnls) < 2:
+        return float("nan")
+    returns = pd.Series(daily_pnls)
+    std = returns.std(ddof=1)
+    if std == 0:
+        return float("nan")
+    return (returns.mean() / std) * (periods_per_year ** 0.5)
 
 
 def main() -> None:
@@ -148,7 +162,10 @@ def main() -> None:
         rows, summary = simulate_day(df, args.qty)
         all_rows.extend(rows)
         summaries.append(summary)
-        print(f"{summary['date']}: bars={summary['bars']} trades={summary['trades']} net_pnl={summary['net_pnl']:+.2f}")
+        print(
+            f"{summary['date']}: bars={summary['bars']} trades={summary['trades']} net_pnl={summary['net_pnl']:+.2f} "
+            f"| position range=[{summary['min_position']}, {summary['max_position']}]"
+        )
 
     if not summaries:
         print("No sessions with data in the given range.")
@@ -161,10 +178,16 @@ def main() -> None:
     total_pnl = sum(s["net_pnl"] for s in summaries)
     total_trades = sum(s["trades"] for s in summaries)
     winning_days = sum(1 for s in summaries if s["net_pnl"] > 0)
+    max_position = max(s["max_position"] for s in summaries)
+    min_position = min(s["min_position"] for s in summaries)
+    sharpe = sharpe_ratio([s["net_pnl"] for s in summaries])
+    sharpe_str = f"{sharpe:.2f}" if pd.notna(sharpe) else "n/a (need >=2 days with P&L variance)"
     print(
         f"\n{len(summaries)} session(s) | qty={args.qty} | trades={total_trades} | "
         f"total P&L={total_pnl:+.2f} | winning days={winning_days}/{len(summaries)}"
     )
+    print(f"Position range across backtest: [{min_position}, {max_position}] shares")
+    print(f"Sharpe ratio (annualized, daily P&L): {sharpe_str}")
 
 
 if __name__ == "__main__":
