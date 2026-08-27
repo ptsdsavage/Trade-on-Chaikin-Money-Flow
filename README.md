@@ -9,11 +9,13 @@ has been.
 | Script | Purpose |
 |---|---|
 | `cmf_spy.py` | Streams SPY 1-min bars (Alpaca SIP), computes CMF, prints/logs a BULLISH/BEARISH/NEUTRAL signal every minute. |
-| `cmf_trader.py` | Long/short paper-trades SPY (1 share) based on the session CMF signal, via Alpaca's paper trading API. |
+| `cmf_trader.py` | Long/short paper-trades SPY (prompts for share quantity) based on the session CMF signal, via Alpaca's paper trading API. |
 | `pnl_monitor.py` | Polls the paper account every 10s and prints/logs unrealized position P&L and account day P&L. |
 | `check_accuracy.py` | Scores a day's signal log against what price actually did afterward. |
+| `backtester.py` | Backtests the CMF trading strategy against historical SPY 1-min bars for a date (or range), simulating cmf_trader.py's session-CMF logic minute by minute. |
 | `build_app.sh` | Builds standalone macOS binaries for `cmf_spy.py` and `cmf_trader.py` and packages them into `Trade on Chaikin Money Flow.zip`. |
 | `build_app_windows.bat` | Builds a standalone Windows exe for `cmf_spy.py` and `cmf_trader.py` (run on Windows) and packages them into `Trade on Chaikin Money Flow.zip`. |
+| [`ios-app/`](ios-app/README.md) | SwiftUI iPhone app version of the signal viewer + paper trader (talks directly to Alpaca; see its own README for setup). |
 
 ## Install
 
@@ -62,7 +64,7 @@ Run each from the project root (session runs 4:00 AM-8:00 PM America/New_York):
 # Stream signal only, no trading
 python cmf_spy.py
 
-# Paper-trade on the CMF signal (long/short 1 share of SPY)
+# Paper-trade on the CMF signal (prompts for how many shares to long/short)
 python cmf_trader.py
 
 # Watch live P&L while cmf_trader.py runs
@@ -70,6 +72,10 @@ python pnl_monitor.py
 
 # Score today's (or a past day's) signal accuracy
 python check_accuracy.py 2026-08-27 --horizon 5 --threshold 0.0
+
+# Backtest the CMF strategy over historical bars
+# iex sessions are 9:30 AM-4:00 PM ET, sip sessions are 4:00 AM-8:00 PM ET
+python backtester.py sip 2026-08-20 --end-date 2026-08-27 --qty 1
 ```
 
 If you are using the 'iex' data plan, only trade during market hours. If you

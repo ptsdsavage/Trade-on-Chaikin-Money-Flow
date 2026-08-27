@@ -41,7 +41,6 @@ from cmf_spy import (
 )
 
 SYMBOL = "SPY"
-QTY = 1
 MARKET_OPEN_HOUR = 9
 MARKET_OPEN_MINUTE = 30
 MARKET_CLOSE_HOUR = 16
@@ -70,6 +69,22 @@ def load_trading_credentials() -> tuple[str, str]:
         print(f"Saved trading credentials to {env_path}\n")
 
     return api_key, api_secret
+
+
+def prompt_qty() -> int:
+    if not sys.stdin.isatty():
+        raise RuntimeError("No TTY available to prompt for share quantity.")
+    while True:
+        raw = input("Enter number of shares to trade: ").strip()
+        try:
+            qty = int(raw)
+        except ValueError:
+            print("Please enter a whole number.")
+            continue
+        if qty <= 0:
+            print("Please enter a positive number.")
+            continue
+        return qty
 
 
 def classify_target_qty(signal: str, qty: int) -> int:
@@ -123,6 +138,7 @@ def main() -> None:
     trade_key, trade_secret = load_trading_credentials()
     feed = load_data_feed()
     api_key, api_secret = load_credentials(feed)
+    qty = prompt_qty()
 
     data_client = StockHistoricalDataClient(api_key, api_secret)
     trading_client = TradingClient(trade_key, trade_secret, paper=True)
@@ -132,7 +148,7 @@ def main() -> None:
     session_end = get_session_end(start)
     trade_log_csv = os.path.join(app_dir(), f"spy_trade_log_{start.date()}.csv")
 
-    print(f"Trading {SYMBOL} on session CMF signal (paper account) until {session_end}. Ctrl+C to stop.")
+    print(f"Trading {SYMBOL} ({qty} shares) on session CMF signal (paper account) until {session_end}. Ctrl+C to stop.")
     print(f"Trade log -> {trade_log_csv}\n")
 
     try:
@@ -148,7 +164,7 @@ def main() -> None:
 
             session_cmf = df["mf_volume"].sum() / df["volume"].sum()
             session_signal = interpret_signal(session_cmf)
-            target_qty = classify_target_qty(session_signal, QTY)
+            target_qty = classify_target_qty(session_signal, qty)
 
             current_qty = get_current_qty(trading_client, SYMBOL)
             delta = target_qty - current_qty
