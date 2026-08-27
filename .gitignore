@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.build-venv/
+.build-venv-arm64/
+.build-venv-x86_64/
+build/
+dist/
+*.zip
+*.log
+spy_bars_*.csv
+spy_signal_log_*.csv
+spy_trade_log_*.csv
+spy_pnl_log_*.csv
+spy_accuracy_*.csv
